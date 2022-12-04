@@ -8,8 +8,16 @@ import ParseServer from 'parse-server';
 import http from 'http';
 import ngrok from 'ngrok';
 import { streamsSync } from '@moralisweb3/parse-server';
+// Node 
+import * as Sentry from "@sentry/node";
+import "@sentry/tracing";
 
 export const app = express();
+
+Sentry.init({
+  dsn: "https://2314152500a44106b4827b94a6fef880@o1223284.ingest.sentry.io/6572305",
+  tracesSampleRate: 1.0,
+});
 
 Moralis.start({
   apiKey: config.MORALIS_API_KEY,
@@ -27,7 +35,9 @@ app.use(
   }),
 );
 
+
 app.use(`/server`, parseServer.app);
+
 
 const httpServer = http.createServer(app);
 httpServer.listen(config.PORT, async () => {
