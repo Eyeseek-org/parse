@@ -11,8 +11,12 @@ import { streamsSync } from '@moralisweb3/parse-server';
 // Node 
 import * as Sentry from "@sentry/node";
 import "@sentry/tracing";
+import {IpFilter} from 'express-ipfilter';
+import helmet from 'helmet';
 
 export const app = express();
+
+app.use(helmet());
 
 Sentry.init({
   dsn: "https://2314152500a44106b4827b94a6fef880@o1223284.ingest.sentry.io/6572305",
@@ -35,7 +39,28 @@ app.use(
   }),
 );
 
+// Allow the following IPs https://github.com/jetersen/express-ipfilter
 
+// https://stackoverflow.com/questions/41604787/express-ip-filter-for-specific-routes
+
+// Whitelist the following IPs
+const ips = ['127.0.0.1']
+
+
+// Create a new middleware function
+const whitelist = (req: any, res: any, next: any) => {
+  // Check if the IP is in the whitelist
+  if (ips.includes(req.ip)) {
+    // Continue to the next middleware
+    // Allow database, Allow frontend, Allow Moralis if needed - that's all
+    next()
+  } else {
+    // Otherwise, send a 403 error
+    res.status(403).send('Forbidden')
+  }
+}
+																																																																																																																																																																																																																																																												
+// app.use(IpFilter(ips, { mode: 'allow' }))
 app.use(`/server`, parseServer.app);
 
 

@@ -83,8 +83,16 @@ Parse.Cloud.define('distribute', async () => {
   query.equalTo("type", "Standard")
   query.equalTo("status", 2) // Pass deadline 
   const all = await query.find({ useMasterKey: true });
-  // Fo each project retrieve pid, (project.get("pid")) and call contract.distribute(pid)
-  // If err, console.log('Cannot be distributed'), move on to the next
+  // Fo each project retrieve projectId and call contract.distribute(pid)
+//  (var i = 0; i < projects.length; i++) {
+//     var project = projects[i];
+//     var projectId = project.id;
+//     console.log("Distributing project " + projectId);
+//     contract.distribute(projectId);
+//   }
+
+
+ // If err, console.log('Cannot be distributed'), move on to the next
   // If ok, don't know what to do - Notify users, update state in the database (status = 2)
   // Add deadline to the db as well -> Query 
 });
