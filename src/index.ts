@@ -63,6 +63,10 @@ const whitelist = (req: any, res: any, next: any) => {
 // app.use(IpFilter(ips, { mode: 'allow' }))
 app.use(`/server`, parseServer.app);
 
+app.get('/', (req, res) => {
+  res.send('hello world')
+})
+
 
 const httpServer = http.createServer(app);
 httpServer.listen(config.PORT, async () => {
