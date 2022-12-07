@@ -13,8 +13,16 @@ import * as Sentry from "@sentry/node";
 import "@sentry/tracing";
 import {IpFilter} from 'express-ipfilter';
 import helmet from 'helmet';
+import mongoose from 'mongoose';
 
 export const app = express();
+
+
+
+// TBD create route for 3rd parties
+// const mongoString = process.env.DATABASE_URI
+// mongoose.connect(mongoString);
+// const database = mongoose.connection
 
 app.use(helmet());
 
@@ -39,28 +47,11 @@ app.use(
   }),
 );
 
-// Allow the following IPs https://github.com/jetersen/express-ipfilter
-
-// https://stackoverflow.com/questions/41604787/express-ip-filter-for-specific-routes
 
 // Whitelist the following IPs
-const ips = ['127.0.0.1']
+var ips = ['::ffff:127.0.0.1','::1'];
 
-
-// Create a new middleware function
-const whitelist = (req: any, res: any, next: any) => {
-  // Check if the IP is in the whitelist
-  if (ips.includes(req.ip)) {
-    // Continue to the next middleware
-    // Allow database, Allow frontend, Allow Moralis if needed - that's all
-    next()
-  } else {
-    // Otherwise, send a 403 error
-    res.status(403).send('Forbidden')
-  }
-}
-																																																																																																																																																																																																																																																												
-// app.use(IpFilter(ips, { mode: 'allow' }))
+//app.use(`/server`, IpFilter(ips, {mode: 'allow'}) ,parseServer.app);
 app.use(`/server`, parseServer.app);
 
 app.get('/', (req, res) => {
