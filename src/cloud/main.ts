@@ -1,8 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-var-requires */
 declare const Parse: any;
-import './generated/evmApi';
-import './generated/solApi';
 import { requestMessage } from '../auth/authService';
 import { ethers } from "ethers"
 import { Framework } from "@superfluid-finance/sdk-core";
@@ -32,6 +30,7 @@ Parse.Cloud.define('requestMessage', async ({ params }: any) => {
   return { message };
 });
 
+//s,m,h,day,mo,dayOfWeek
 cron.schedule('* * * * *', async() => {
   const res = await syncStreams();
   console.log(res);
