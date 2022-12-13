@@ -31,13 +31,14 @@ Parse.Cloud.define('requestMessage', async ({ params }: any) => {
 });
 
 //s,m,h,day,mo,dayOfWeek
-cron.schedule('* * * * *', async() => {
-  const res = await syncStreams();
-  console.log(res);
+cron.schedule('* 10 * * *', async() => {
+  await syncStreams();
+  console.log('stream sync');
 });
 
 const getFlowData = async (sender: string, receiver: string) => {
   // Key service to retrieve current deposit 
+  // Chain + Currency + Production env
   const sf = await Framework.create({
     provider: provider,
     chainId: 80001
@@ -65,15 +66,25 @@ async function syncStreams () {
   for (let i = 0; i < result.length; i++) {
     const stream = result[i];
     const flow = await getFlowData(stream.get('owner'), stream.get('addressBacker'))
-    console.log(flow)
     if (!flow || flow.flowRate == '0') {
       stream.set('isActive', false)
       await stream.save()
       console.log('deactivated', i)
     } else {
-      const flowRate = flow.flowRate.toString()
-      stream.set('flowRate', flowRate)
-      console.log('updated', i)
+      const deposited = Number(flow.deposit) / 10 ** 18
+
+      const monthly = Number(flow.flowRate) * 60 * 60 * 24 * 30
+      const rounded = Math.round(monthly / 10 ** 18)
+      const flowRate = rounded.toString()
+
+      if (stream.get('flowRate') != flowRate) {
+        console.log('Mismatch found')
+        stream.set('flowRate', flowRate)
+        stream.set('deposited', deposited)
+        // TBD how to correctly update object
+        // await stream.save()
+        console.log('updated', i)
+      } 
     }
   }
 
