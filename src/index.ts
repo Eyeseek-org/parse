@@ -47,7 +47,6 @@ app.use(
   }),
 );
 
-
 // Whitelist the following IPs
 var ips = ['::ffff:127.0.0.1','::1'];
 

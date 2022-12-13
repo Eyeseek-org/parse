@@ -6,6 +6,8 @@ import './generated/solApi';
 import { requestMessage } from '../auth/authService';
 import { ethers } from "ethers"
 import { Framework } from "@superfluid-finance/sdk-core";
+import cron from 'node-cron';
+
 
 const net = {
   name: 'mumbai',
@@ -30,6 +32,53 @@ Parse.Cloud.define('requestMessage', async ({ params }: any) => {
   return { message };
 });
 
+cron.schedule('* * * * *', async() => {
+  const res = await syncStreams();
+  console.log(res);
+});
+
+const getFlowData = async (sender: string, receiver: string) => {
+  // Key service to retrieve current deposit 
+  const sf = await Framework.create({
+    provider: provider,
+    chainId: 80001
+  })
+  const DAIxContract = await sf.loadSuperToken("fDAIx");
+  const DAIx = DAIxContract.address;
+  try {
+    const flow = await sf.cfaV1.getFlow({
+      superToken: DAIx,
+      sender: sender,
+      receiver: receiver,
+      providerOrSigner: provider
+    })
+    return flow
+  } catch (err) {
+    console.log(err)
+  }
+}
+
+async function syncStreams () {
+  const query = new Parse.Query("Stream");
+  query.equalTo("isActive", true)
+  const result = await query.find()
+
+  for (let i = 0; i < result.length; i++) {
+    const stream = result[i];
+    const flow = await getFlowData(stream.get('owner'), stream.get('addressBacker'))
+    console.log(flow)
+    if (!flow || flow.flowRate == '0') {
+      stream.set('isActive', false)
+      await stream.save()
+      console.log('deactivated', i)
+    } else {
+      const flowRate = flow.flowRate.toString()
+      stream.set('flowRate', flowRate)
+      console.log('updated', i)
+    }
+  }
+
+}
 
 Parse.Cloud.define('getPluginSpecs', () => {
     // Not implemented, only excists to remove client-side errors when using the moralis-v1 package
@@ -97,38 +146,30 @@ Parse.Cloud.define('distribute', async () => {
   // Add deadline to the db as well -> Query 
 });
 
-
-// Checks stream in database, Superfluid and sync their status 
-Parse.Cloud.define('stream', async () => {
+Parse.Cloud.define('getStreamData', async (request: any) => {
+  let flowRate = 0;
+  let deposited = 0;
   const query = new Parse.Query("Stream");
-  query.equalTo("isActive", true)
-  // Go through all streams, compare each item with getFlowData and update status (isActive) in database if not true 
+  query.equalTo("projectId", request.params.projectId)
+  query.equalTo("isActive", true);
+  const results = await query.find()
+  for (let i = 0; i < results.length; ++i) {
+    const sumFlow = Number(results[i].get("flowRate"));
+    flowRate += sumFlow;
+  }
 
-  const getFlowData = async () => {
-    // Key service to retrieve current deposit 
-    const sf = await Framework.create({
-      provider: provider,
-      chainId: 80001
-    })
-    const DAIxContract = await sf.loadSuperToken("fDAIx");
-    const DAIx = DAIxContract.address;
-    try {
-      const flow = await sf.cfaV1.getFlow({
-        superToken: DAIx,
-        sender: "0xa0a39c5823A51184043655711C8157ef4826447a",
-        receiver: "0xd4924261323DAc5fAAD8524864d35D43d7190F92",
-        providerOrSigner: provider
-      })
-      return flow
-    } catch (err) {
-      console.log(err)
-    }
+  const depQuery = new Parse.Query("Project");
+  depQuery.equalTo("projectId", request.params.projectId)
+  const depResults = await depQuery.find()
+  for (let i = 0; i < depResults.length; ++i) {
+    const depFlow = Number(results[i].get("deposited"));
+    deposited += depFlow;
   }
-  const res = await getFlowData()
-  if (!res) {
-    return "No flow"
-  }
+
+  // 2 loopy udělat - zvlášť pro total deposit 
+  return {"flowRate" : flowRate, "deposited": deposited};
 })
+
 
 // Github check
 // 1. Check if Github commit did happened in last two weeks
