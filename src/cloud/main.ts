@@ -6,7 +6,6 @@ import { ethers } from "ethers"
 import { Framework } from "@superfluid-finance/sdk-core";
 import cron from 'node-cron';
 
-
 const net = {
   name: 'mumbai',
   chainId: 80001,
@@ -16,7 +15,6 @@ const net = {
 let provider = ethers.getDefaultProvider(net);
 let privateKey = process.env.PRIVATE_KEY;
 let fundingAddress = '0x77D3533eeBAA48e54b6C69EF66149a25494c34E2'
-
 
 Parse.Cloud.define('requestMessage', async ({ params }: any) => {
   const { address, chain, networkType } = params;
@@ -35,6 +33,21 @@ cron.schedule('* 10 * * *', async() => {
   await syncStreams();
   console.log('stream sync');
 });
+
+
+// Common function to push notification across multiple universal syncs
+const pushNoti = async (user: string, project: string, title: string, description: string, type: string)  => {
+  const Noti = Parse.Object.extend("Notification");
+  const noti = new Noti();
+  noti.set('user', user)
+  noti.set('type', type)
+  noti.set('isRead', false)
+  noti.set('title', title)
+  noti.set('description', description)
+  noti.set('project', project)
+  noti.save()
+  console.log(`Notification ${type} sent`)
+}
 
 const getFlowData = async (sender: string, receiver: string) => {
   // Key service to retrieve current deposit 
@@ -62,7 +75,6 @@ async function syncStreams () {
   const query = new Parse.Query("Stream");
   query.equalTo("isActive", true)
   const result = await query.find()
-
   for (let i = 0; i < result.length; i++) {
     const stream = result[i];
     const flow = await getFlowData(stream.get('owner'), stream.get('addressBacker'))
@@ -71,7 +83,8 @@ async function syncStreams () {
       await stream.save()
       console.log('deactivated', i)
     } else {
-      const deposited = Number(flow.deposit) / 10 ** 18
+      const depNumber = Number(flow.deposit) / 10 ** 18
+      const deposited = depNumber.toString()
 
       const monthly = Number(flow.flowRate) * 60 * 60 * 24 * 30
       const rounded = Math.round(monthly / 10 ** 18)
@@ -82,8 +95,13 @@ async function syncStreams () {
         stream.set('flowRate', flowRate)
         stream.set('deposited', deposited)
         // TBD how to correctly update object
-        // await stream.save()
-        console.log('updated', i)
+        try {
+          await stream.save()
+          pushNoti(stream.get('owner'), stream.get('projectId'),"Stream synced" ,"Your stream was synced with Superfluid" , 'streamSynced')
+          console.log('updated', i)
+        } catch (err) {
+          console.log(err)
+        }
       } 
     }
   }
@@ -195,22 +213,6 @@ Parse.Cloud.define('github', async () => {
   return all
 });
 
-
-
-// Checking before save 
-Parse.Cloud.beforeSave('Project', async (request: any) => {
-  const project = request.object;
-  const tit = project.get('title');
-  const query = new Parse.Query("Project");
-  query.equalTo("title", tit);
-  const first = await query.first({ useMasterKey: true });
-  console.log("first" + first.title); // undefined
-  console.log("tit"+ tit); // Good
-
-  if (first && first.title == tit) {
-    throw new Parse.Error(Parse.Error.DUPLICATE_VALUE, 'Project with this title already exists');
-  } 
-});
 
 Parse.Cloud.job('test', async () => {
   const query = new Parse.Query("Project");
